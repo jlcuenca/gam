@@ -1,0 +1,376 @@
+Arquitectura de Datos Electorales en
+México: Especificación Técnica Integral
+para Sistemas de Información Histórica
+y Geoestadística
+1. Introducción y Alcance Estratégico
+El desarrollo de una aplicación capaz de consultar, visualizar y analizar la historia electoral de
+México con una granularidad que descienda hasta la sección electoral y la colonia representa
+uno de los desafíos más ambiciosos en la ingeniería de datos cívicos. La petición de investigar
+a fondo el histórico de resultados electorales, tanto federales como locales (con prioridad en la
+Ciudad de México), exige trascender la simple recopilación de estadísticas sumarias. Requiere
+la construcción de una infraestructura de datos masiva que normalice más de tres décadas de
+información heterogénea, resuelva discrepancias cartográficas y vincule la abstracción
+administrativa del voto (la Sección Electoral) con la realidad vivida por el ciudadano (la
+Colonia).
+El presente informe técnico constituye una especificación exhaustiva diseñada para guiar este
+desarrollo. A diferencia de un resumen histórico convencional, este documento aborda la física
+de los datos: dónde residen, cómo están estructurados, cuáles son sus deficiencias y cómo
+transformarlos en un sistema consultable por país, entidad, municipio, colonia y sección. El
+análisis abarca desde los primeros registros digitales sistematizados de 1991 hasta los
+cómputos distritales definitivos de 2024, integrando las fuentes del Instituto Nacional Electoral
+(INE) y el Instituto Electoral de la Ciudad de México (IECM).
+La premisa central de esta arquitectura es que la Sección Electoral es el átomo indivisible del
+sistema. Sin embargo, para cumplir con el requerimiento de consulta por "Colonia", el sistema
+debe implementar una capa de inteligencia geoespacial que traduzca estas secciones a las
+Unidades Territoriales que reconocen los habitantes. Asimismo, para satisfacer la necesidad de
+consultar "nombres de candidatos" y "votos por partido", se debe implementar una lógica de
+negocio que gestione la complejidad de las coaliciones, las candidaturas comunes y las
+sustituciones de última hora, fenómenos que matemáticamente alteran cómo se almacenan y
+presentan los datos crudos.
+A lo largo de este documento, se desglosará la estrategia para la ingesta de millones de
+registros de casillas, la metodología para calcular la participación real basada en cortes
+históricos de la Lista Nominal y el tratamiento de los votos nulos como un indicador de
+comportamiento cívico.
+
+2. El Ecosistema de Datos Federales: El Instituto
+Nacional Electoral (INE)
+El Instituto Nacional Electoral (INE), y su predecesor el IFE, han generado el corpus de datos
+más extenso del país. Sin embargo, la accesibilidad y el formato de estos datos han
+
+evolucionado drásticamente, pasando de archivos planos en formatos propietarios en los años
+90 a sistemas de datos abiertos modernos. Para una aplicación que aspire a cubrir "todo el
+histórico", es necesario entender y procesar tres eras geológicas de datos.
+
+2.1 La Era de los Datos Abiertos y el SICEE (2015-2024)
+La fuente más robusta, estandarizada y accesible para el desarrollo de la aplicación es el
+Sistema de Consulta de la Estadística de las Elecciones (SICEE). Este sistema representa
+la madurez digital del instituto y debe ser la piedra angular del backend de la aplicación para la
+última década.
+El SICEE no es solo un visualizador; funciona como un repositorio de bases de datos
+desagregadas descargables en formato CSV (Comma Separated Values), lo cual facilita su
+ingesta programática. La cobertura de este sistema es exhaustiva para el periodo reciente:
+●​ Alcance Temporal: Resultados Federales de 1991 a 2024 y Resultados Locales de 2015
+a 2024.
+●​ Granularidad: Permite descargas a nivel de Casilla, lo que ofrece la máxima resolución
+posible. Para la aplicación propuesta, que opera a nivel Sección, el desarrollador deberá
+realizar una agregación (SUM) de todas las casillas (Básicas, Contiguas, Extraordinarias)
+que componen una Sección Electoral.
+●​ Variables Disponibles: Los archivos CSV del SICEE contienen las columnas críticas
+solicitadas: Votos por Partido Político, Votos por Coalición, Candidaturas Independientes,
+Votos Nulos, Total de Votos y, crucialmente, la Lista Nominal de la casilla.
+Es vital distinguir entre los tipos de fuentes dentro del universo INE. Existen los datos del PREP
+(Programa de Resultados Electorales Preliminares) y los datos de los Cómputos Distritales.
+Para una aplicación histórica de referencia, se debe descartar el PREP y utilizar
+exclusivamente los Cómputos Distritales. Los Cómputos son los resultados definitivos que
+tienen validez legal tras el recuento de votos y la resolución de incidencias en los consejos
+distritales. Los archivos de cómputos suelen incluir ajustes que no están en el PREP, como los
+votos recuperados de casillas litigadas.
+La estructura de los archivos de Cómputos Distritales recientes (2018, 2021, 2024) sigue una
+nomenclatura estandarizada que facilita la automatización de la descarga. Los archivos se
+empaquetan generalmente en contenedores .zip o .tar.gz identificados por fecha y hora de
+corte (e.g., 20240609_COMPUTOS.zip). Dentro de estos paquetes, la aplicación debe procesar
+dos tipos de archivos CSV fundamentales:
+1.​ Archivo de Resultados: Contiene la matriz numérica. Cada fila es una casilla, y las
+columnas son los partidos y coaliciones.
+2.​ Archivo de Candidaturas (Cat_Candidatos): Este archivo es el diccionario que permite
+cumplir el requerimiento de mostrar "nombres de candidatos". Sin este archivo, la base
+de datos solo tendría IDs de partidos. Este catálogo vincula, por ejemplo, el Distrito 05 de
+la Entidad 09 con el nombre "Candidato X" para el partido "Y".
+
+2.2 La Era de Transición y los Sistemas "Legacy" (1991-2012)
+Para los procesos electorales anteriores a 2015, la situación se vuelve técnicamente más
+compleja. Si bien el SICEE ha integrado mucha de esta data, existen matices en la calidad y el
+detalle de la información histórica que residen en micrositios antiguos o el "Atlas de Resultados
+Electorales Federales".
+Para las elecciones de 1991, 1994, 1997, 2000, 2003, 2006, 2009 y 2012, el INE mantiene un
+
+acervo histórico que en su momento se distribuyó en medios físicos (CD-ROMs) y
+posteriormente en micrositios web. Muchos de estos sitios originales utilizaban tecnología
+Adobe Flash, hoy obsoleta, lo que dificulta la consulta directa. Sin embargo, la migración de
+estos datos al SICEE ha mitigado gran parte del problema.
+El desafío principal en esta era histórica es la normalización de las coaliciones. En los 90 y
+principios de los 2000, las leyes electorales sobre cómo se contaban los votos de coalición eran
+diferentes. En algunos periodos, el voto contaba para la coalición como un ente único; en otros,
+se distribuía. La base de datos de la aplicación debe ser agnóstica a estas reglas y almacenar
+el dato tal como se reportó en su momento (el "dato crudo"), dejando la interpretación visual a
+la capa de presentación.
+
+2.3 Procesamiento de Datos de Participación y Padrón
+Un requerimiento explícito es la inclusión de "cifras del padrón" y "participación". Es
+fundamental clarificar la terminología técnica para la aplicación:
+●​ Padrón Electoral: Es la base de datos de todos los ciudadanos que solicitaron su
+credencial. No todos recogen su credencial o están vigentes.
+●​ Lista Nominal: Es la lista definitiva de ciudadanos con credencial vigente que pueden
+votar el día de la elección. Esta es la cifra que se debe usar para calcular la
+participación.
+En los archivos de resultados por casilla (CSV), la columna LISTA_NOMINAL suele estar
+presente. La participación se calcula mediante la fórmula:
+Existen casos extremos donde la Lista Nominal puede no estar reportada en el archivo de
+resultados (común en elecciones antiguas). En esos casos, se debe recurrir a los "Estadísticos
+de Padrón y Lista Nominal" que el INE publica como datasets separados, desagregados por
+sección, edad y sexo. Cruzar estos datasets permite enriquecer la aplicación con pirámides
+poblacionales de votantes por sección.
+
+3. El Ecosistema Local: Prioridad Ciudad de México
+(IECM)
+La Ciudad de México presenta un ecosistema de datos distinto y de alta complejidad debido a
+su evolución política de Departamento del Distrito Federal a entidad autónoma. El Instituto
+Electoral de la Ciudad de México (IECM) es el custodio de esta información. Para cumplir con
+la prioridad solicitada sobre la CDMX, la aplicación debe integrar fuentes específicas que no
+existen a nivel federal.
+
+3.1 Evolución Histórica de los Datos en CDMX (1997-2024)
+La historia electoral democrática de la capital es relativamente joven, iniciando formalmente en
+1997 con la primera elección de Jefe de Gobierno.
+●​ Periodo 2015-2024 (Estandarización): Al igual que en lo federal, las elecciones
+recientes (2015, 2018, 2021, 2024) cuentan con Sistemas de Consulta de Estadística de
+Resultados robustos. El IECM ha habilitado plataformas donde se pueden descargar los
+resultados a nivel de sección electoral en formatos procesables (CSV o Excel).
+○​ Elección 2024: El sistema incluye módulos para Jefatura de Gobierno, Alcaldías y
+Diputaciones, con desglose por voto anticipado y voto en el extranjero.
+○​ Elección 2021: Destaca por incluir la elección de la "Diputación Migrante", un
+cargo novedoso que la aplicación debe ser capaz de representar.
+●​ Periodo 2000-2012 (Micrositios Históricos): El IECM mantiene un "Historial de
+Elecciones" que da acceso a los resultados de 2000, 2003, 2006, 2009 y 2012.
+○​ Reto Técnico: Muchos de estos resultados se encuentran en archivos Excel con
+formato de reporte (encabezados combinados, celdas fusionadas) diseñados para
+impresión humana, no para lectura de máquina. La ingesta de estos datos
+requerirá el desarrollo de scripts de limpieza (parsers) en lenguajes como Python
+(Pandas) para estructurarlos en tablas relacionales limpias.
+
+3.2 Variables Exclusivas del Ámbito Local
+La aplicación debe modelar entidades políticas que no existen a nivel federal:
+1.​ Alcaldías (antes Jefaturas Delegacionales): El equivalente al municipio. Es la unidad
+administrativa principal para la agrupación de colonias.
+2.​ Concejalías (desde 2018): Figuras que integran el gobierno de la alcaldía. Se eligen por
+planilla junto con el alcalde, pero su asignación de representación proporcional depende
+de la votación desagregada.
+3.​ Comités Ciudadanos y Presupuesto Participativo: Aunque la consulta se centra en
+elecciones constitucionales, el IECM también gestiona estas elecciones vecinales. La
+estructura de datos debe ser lo suficientemente flexible para incorporar estos resultados
+en el futuro, ya que ocurren a nivel de "Unidad Territorial" (Colonia), coincidiendo con la
+granularidad deseada.
+
+4. El Puente Geoespacial: Mapeo de Secciones a
+Colonias
+Este es el componente más crítico y técnicamente desafiante de la solicitud. Los sistemas
+electorales (INE/IECM) operan sobre Secciones Electorales. Los ciudadanos y la aplicación
+propuesta operan sobre Colonias. No existe una relación geométrica perfecta ni permanente
+entre ambas. Resolver esta discrepancia es la clave del éxito del proyecto.
+
+4.1 La Unidad Territorial (UT) como Proxy de Colonia
+En la Ciudad de México, el concepto legal que equivale a "Colonia" para fines de participación
+ciudadana es la Unidad Territorial (UT). El IECM define y actualiza este catálogo. Una UT
+puede ser una colonia, un pueblo originario, una unidad habitacional o un barrio.
+El insumo fundamental para la aplicación es el documento técnico conocido como el
+"Condensado" o "Catálogo de Unidades Territoriales". Este documento establece la
+equivalencia oficial:
+"La Unidad Territorial X (Colonia) está conformada por las Secciones Electorales Y, Z, W."
+Por ejemplo, el catálogo puede indicar que la UT "05-041 EDUARDO MOLINA I (U HAB)"
+corresponde a las secciones 1545 y 1546. Esta relación textual es la que permite "agregar" los
+resultados electorales. Si un usuario busca los resultados de la colonia "Eduardo Molina I", la
+aplicación debe:
+1.​ Consultar el catálogo de equivalencias para encontrar las secciones (1545, 1546).
+2.​ Buscar en la base de datos de resultados (INE/IECM) los votos de esas secciones
+específicas.
+3.​ Sumar los votos de todas esas secciones.
+4.​ Presentar el resultado agregado como "Resultados de la Colonia".
+
+4.2 Arquitectura del Cruce Geoespacial
+Para visualizar esto en un mapa, se requieren dos capas de información geográfica
+(Shapefiles/GeoJSON):
+1.​ Polígonos de Secciones Electorales: Provistos por el INE (Cartografía Electoral
+
+Federal).
+2.​ Polígonos de Unidades Territoriales (Colonias): Provistos por el IECM o el Portal de
+Datos Abiertos de la CDMX.
+Debido a que los límites de las colonias y las secciones no siempre coinciden perfectamente
+(una sección podría morder dos colonias en los bordes), la "verdad" para la aplicación debe ser
+siempre la tabla de equivalencia oficial (Condensado) publicada por el IECM, no una
+intersección geométrica calculada al vuelo, ya que esta última podría introducir errores
+marginales.
+
+4.3 El Desafío del Reseccionamiento
+Un aspecto crítico mencionado en los snippets es el reseccionamiento. El INE divide o fusiona
+secciones periódicamente para mantener el equilibrio poblacional (máximo 3,000 electores por
+sección).
+●​ Implicación para la App: La sección "4501" en el año 2000 puede no existir en 2024, o
+haberse dividido en "4501-B" y "4501-C".
+●​ Solución: La base de datos debe manejar la geografía como una Dimensión
+Temporalmente Cambiante (SCD Type 2). La tabla de equivalencias debe tener
+columnas de vigencia_inicio y vigencia_fin. Al consultar una elección de 2012, el sistema
+debe usar el catálogo de colonias y secciones vigente en 2012, no el actual. El IECM
+publica acuerdos específicos (e.g., INE/CG623/2023) que documentan estos cambios y
+deben ser procesados para actualizar el catálogo histórico.
+
+5. Dimensiones de Datos: Candidatos, Partidos y
+Coaliciones
+Para satisfacer la petición de desglose "partido por partido" y "nombres de candidatos", se
+requiere una arquitectura relacional que soporte la complejidad de la política de alianzas en
+México.
+
+5.1 Gestión de Nombres de Candidatos
+La información de los nombres de los candidatos no reside en la misma tabla que los votos.
+Los archivos de resultados (Resultados_2024.csv) solo contienen claves de partidos y cifras
+numéricas.
+●​ Fuente de Nombres: Para vincular "PAN" con "Candidato X", se deben descargar los
+archivos auxiliares de Catálogos de Candidaturas (Cat_Candidatos) que acompañan a
+los paquetes de cómputos distritales.
+●​ Estructura del Catálogo: Estos archivos suelen contener: Entidad, Distrito,
+Partido/Coalición, Nombre_Propietario, Nombre_Suplente.
+●​ Sustituciones: En el periodo de campaña, los candidatos pueden renunciar y ser
+sustituidos. El INE registra esto en acuerdos del Consejo General. Para la aplicación, la
+"verdad histórica" debe ser la lista de candidatos que aparece en el Sistema de
+Cómputos Distritales al final del proceso, ya que refleja quién recibió legalmente los
+votos, independientemente de quién hizo campaña al principio.
+
+5.2 Matemáticas de Coaliciones
+Las coaliciones (e.g., "Va por México", "Juntos Hacemos Historia") introducen una complejidad
+aritmética. En la boleta electoral mexicana, el votante marca emblemas de partidos.
+1.​ Voto Puro: Marca solo PAN.
+2.​ Voto Coalición: Marca PAN y PRI.
+3.​ Voto Candidato: Legalmente, ambos votos cuentan para el mismo candidato.
+Tratamiento en la Base de Datos: Los archivos de cómputos del INE registran estos votos en
+columnas separadas: PAN, PRI, PAN_PRI, PAN_PRI_PRD.
+●​ Requerimiento del Usuario: Si el usuario pide "votos por partido", la aplicación debe
+
+decidir cómo presentar los votos de coalición. La práctica estándar del INE para
+estadística es distribuir los votos de coalición igualitariamente entre los integrantes.
+●​ Implementación: Se recomienda almacenar los datos crudos (todas las
+combinaciones) en la tabla de hechos (Fact_Votos) y realizar la distribución mediante una
+vista lógica o en el momento de la consulta (Query Time). Esto preserva la integridad del
+dato original y permite análisis avanzados (e.g., "¿Cuánta gente votó específicamente por
+la combinación PAN-PRI vs solo PAN?").
+
+6. Análisis del Voto Nulo y Abstencionismo
+El reporte de investigación indica que el usuario desea priorizar "votos nulos" y "participación".
+Estas no son métricas secundarias, sino indicadores primarios de la salud democrática.
+
+6.1 Voto Nulo
+El voto nulo debe tratarse como una "fuerza política" más en la visualización de la aplicación.
+●​ Extracción: Todos los CSV de resultados (SICEE y Cómputos) contienen una columna
+explícita VOTOS_NULOS.
+●​ Valor Analítico: Un mapa de calor de votos nulos a nivel sección puede revelar zonas de
+desinformación (boletas complejas mal llenadas) o de protesta activa. La aplicación debe
+permitir filtrar el mapa para resaltar secciones donde el voto nulo supere cierto umbral
+(e.g., >5%).
+
+6.2 Cálculo de Participación
+Como se mencionó en la sección 2.3, la participación requiere la Lista Nominal. Sin embargo,
+es crucial usar la Lista Nominal correspondiente al corte definitivo de la jornada electoral.
+●​ Fuente de Datos: Se debe extraer la columna LISTA_NOMINAL de las tablas de
+cómputos. Si esta columna está vacía (común en históricos pre-2006), se debe hacer un
+join con los censos electorales históricos disponibles en los apartados de "Numeralia" o
+"Padrón Electoral" del sitio del INE.
+●​ Visualización: La aplicación debe ser capaz de contrastar la participación de una
+Colonia específica contra el promedio de su Alcaldía o de la Ciudad, ofreciendo contexto
+al usuario.
+
+7. Especificación Técnica de Implementación
+A continuación, se detalla la arquitectura de software e ingeniería de datos recomendada para
+materializar esta investigación en una aplicación funcional.
+
+7.1 Arquitectura de Flujo de Datos (Pipeline)
+El sistema requiere un proceso de ETL (Extracción, Transformación y Carga) robusto para
+digerir la heterogeneidad de las fuentes descritas.
+1.​ Capa de Ingesta (Extract):
+○​ Federal: Scripts automatizados (Python/Bash) que descarguen secuencialmente
+los archivos .zip del repositorio de Cómputos Distritales del INE y SICEE para cada
+
+año electoral.
+○​ Local (CDMX): Scrapers dedicados para los micrositios del IECM (2000-2012) que
+extraigan tablas de Excel y PDFs. Descarga directa de APIs para 2015-2024.
+○​ Geográfica: Descarga de Shapefiles del SIGE (INE) y Catálogos de Colonias
+(IECM).
+2.​ Capa de Procesamiento (Transform):
+○​ Normalización de Esquemas: Mapear las columnas variables (e.g., PRI_VOTO
+en 2000 vs PARTIDO_REVOLUCIONARIO_INSTITUCIONAL en 2024) a un
+esquema canónico estandarizado.
+○​ Resolución Geográfica: Construir la tabla maestra de equivalencias Sección <->
+Colonia parseando los documentos "Condensado" del IECM. Asignar IDs únicos a
+cada Colonia y Sección que persistan en el tiempo.
+○​ Limpieza de Texto: Estandarizar nombres de candidatos (mayúsculas, tildes) para
+permitir búsquedas transversales.
+3.​ Capa de Almacenamiento (Load):
+○​ Se recomienda una base de datos relacional (PostgreSQL) con extensiones
+espaciales (PostGIS). Esto permitirá realizar consultas complejas como "Dame los
+resultados de todas las secciones que intersecan con el polígono de la Colonia
+Roma Norte".
+
+7.2 Modelo de Datos Relacional
+Para organizar la información se propone un esquema en estrella (Star Schema) optimizado
+para consultas analíticas:
+●​ Dim_Eleccion: Almacena los metadatos de cada proceso (Año, Tipo: Federal/Local,
+Cargo: Presidente/Alcalde).
+●​ Dim_Geografia: Tabla con la jerarquía completa: País -> Entidad -> Distrito
+Federal/Local -> Municipio/Alcaldía -> Colonia (UT) -> Sección. Incluye geometrías
+(polígonos) para visualización.
+●​ Dim_Candidato: Registro único de políticos, vinculando sus diferentes candidaturas a lo
+largo del tiempo (e.g., un candidato que fue Diputado en 2018 y Alcalde en 2021).
+●​ Dim_Partido: Catálogo de partidos y coaliciones, incluyendo logotipos y colores oficiales
+para la UI.
+●​ Fact_Resultados: La tabla central masiva. Cada fila representa los resultados de una
+casilla para una elección específica. Columnas: id_casilla, id_candidato/partido, votos,
+tipo_voto (puro, coalición, nulo).
+
+7.3 Hoja de Ruta de Desarrollo
+1.​ Fase 1: Arqueología de Datos (Semanas 1-4): Recopilación masiva de archivos
+históricos y construcción del diccionario de datos unificado. Prioridad: SICEE y Cómputos
+Distritales.
+2.​ Fase 2: El Motor Geoespacial (Semanas 5-8): Digitalización del "Condensado" del
+IECM. Creación de la base de datos PostGIS con polígonos de secciones y colonias.
+Validación de cruces.
+3.​ Fase 3: Lógica Electoral (Semanas 9-12): Implementación de algoritmos de distribución
+de votos por coalición y agregación dinámica (Casilla -> Sección -> Colonia).
+4.​ Fase 4: API y Frontend (Semanas 13+): Desarrollo de la interfaz de consulta que
+
+permita al usuario filtrar por sus unidades de interés (País, Ciudad, Colonia).
+
+8. Conclusión
+La construcción de una aplicación con el nivel de detalle solicitado es un proyecto de alta
+complejidad técnica pero totalmente viable gracias a la transparencia de datos del INE y el
+IECM. La clave del éxito no reside solo en la acumulación de datos, sino en la correcta
+implementación de la capa de traducción geoespacial entre Secciones y Colonias.
+Al seguir esta especificación, integrando los resultados de los Cómputos Distritales con los
+catálogos de Unidades Territoriales del IECM, es posible ofrecer a la ciudadanía una
+herramienta inédita: la capacidad de ver la historia democrática no desde la abstracción de los
+grandes números nacionales, sino desde la realidad concreta de su propia calle y colonia.
+
+Fuentes citadas
+1. Sistema de Consulta de la Estadística de las Elecciones del Proceso Electoral 2020-2024,
+https://siceen21.ine.mx/ 2. Sistema de Consulta de la Estadística de las Elecciones del Proceso
+Electoral 2023-2024 - INE, https://sicee.ine.mx/ 3. Resultados Electorales - Instituto Nacional
+Electoral, https://ine.mx/voto-y-elecciones/resultados-electorales/ 4. Cómputos Distritales Instituto Nacional Electoral, https://ine.mx/voto-y-elecciones/computos-distritales/ 5. Base de
+Datos - Cómputos Distritales Judiciales 2025, https://computospj2025.ine.mx/base-datos 6.
+Estructura de los archivos CSV para el tratamiento de la Base de datos relativa al Sistema de
+PROGRAMA DE RESULTADOS ELECTORALES,
+https://legislacion.scjn.gob.mx/Buscador/Paginas/AbrirImgStream.aspx?q=ca+xLptWF6fgKn8uc
+VET62mz/JMKL6h/gLA4bbSvkUhKpHvI4a0IwZ0tVIuchPLqIi9Gx+G2mG/45HJL8nZgslaCMRbK
+u7oTvnyWQEl0W8w3rD+emppGM5496CIIaOxYDIGA4VOOeyldLxEIgSGaN+cjRiFI1ZisGbl4Y8
+Yt3Jn1Cb6SNPJcK8tmiOYB9EqT 7. Descarga la base de datos - PREP 2015 - INE,
+https://prep2015.ine.mx/BaseDeDatos.html 8. Histórico de Resultados Electorales - Instituto
+Nacional Electoral - INE,
+https://portalanterior.ine.mx/archivos3/portal/historico/contenido/Historico_de_Resultados_Elect
+orales/ 9. Sistema de Consulta de Estadística de Participación Electoral. Elecciones locales
+2021., https://www.iecm.mx/www/estadisticaparticipacionpelo2021/ 10. Conteos Censales de
+Participación Ciudadana 2009-2024 - INE,
+https://ine.mx/transparencia/datos-abiertos/visualizacion-datos/conteos-censales-participacion/
+11. Historial de Elecciones - IECM, https://www.iecm.mx/elecciones/historial-de-elecciones/ 12.
+Habilita IECM plataforma digital sobre resultados del Proceso Electoral Local Ordinario
+2023-2024,
+https://www.iecm.mx/habilita-iecm-plataforma-digital-sobre-resultados-del-proceso-electoral-loc
+al-ordinario-2023-2024/ 13. Catálogo de Unidades Territoriales 2025 - IECM,
+https://www.iecm.mx/www/scmgpc/documentos/catalogos_UT/05_Catalogo_Ejecutivo.pdf 14.
+SCMGPC | Sistema de Consulta del Marco Geográfico de Participación Ciudadana 2022,
+https://www.iecm.mx/www/scmgpc/ 15. SCMGE | Sistema de Consulta del Marco Geográfico
+Electoral 2020 - 2021 - IECM, https://www.iecm.mx/www/scmgel/ 16. Productos de Geografía
+Electoral Descargables - Instituto Nacional ... - INE,
+https://portal.ine.mx/productos-geografia-electoral-descargables/ 17. Inicio - SIGE 8 Cartografía Electoral - INE, https://cartografia.ine.mx/sige8/ 18. Mapa - Sistema Abierto de
+Información Geográfica (SIGCDMX), https://sig.cdmx.gob.mx/sig_cdmx/ 19. División Geográfica
+
+- Групи - Portal de Datos Abiertos de la CDMX,
+https://datos.cdmx.gob.mx/mk/group/division-geografica 20. MARCO GEOGRÁFICO
+ELECTORAL LOCAL RANGO DE SECCIONES ELECTORALES CIUDAD DE MÉXICO - IECM,
+https://www.iecm.mx/www/scmgel/documentos/principal/Rangos.pdf
+
+
