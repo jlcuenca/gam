@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   LogOut,
   Search,
-  PlusCircle,
   Users,
   LayoutGrid,
   UserPlus

@@ -1,26 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import {
   Shield,
-  User,
   Users,
   QrCode,
   Camera,
   MapPin,
   Bluetooth,
   CheckCircle,
-  AlertTriangle,
   Clock,
   LogOut,
-  Menu,
-  ChevronRight,
   Smartphone,
   BarChart3,
   Activity,
   AlertCircle,
   X,
-  Bell,
   BellRing,
-  Wifi,
   WifiOff,
   RefreshCw
 } from 'lucide-react';
@@ -28,7 +22,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 
-import { authService } from './lib/authService';
+
+// import { authService } from './lib/authService';
+
 
 // Types
 type Role = 'worker' | 'supervisor' | 'admin';
@@ -157,7 +153,7 @@ const App: React.FC = () => {
         validateQR(decodedText);
       }
 
-      function onScanFailure(error: any) {
+      function onScanFailure() {
         // console.warn(`Code scan error = ${error}`);
       }
 
