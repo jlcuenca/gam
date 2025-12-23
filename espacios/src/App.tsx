@@ -33,7 +33,7 @@ interface Space {
     lastVisit: string;
     images: string[];
     description: string;
-    responsibleDirector: 'Obras' | 'Servicios Urbanos' | 'Desarrollo Social' | 'Seguridad' | 'Gobierno';
+    responsibleDirector: 'Obras' | 'Servicios Urbanos' | 'Desarrollo Social' | 'Seguridad' | 'Gobierno' | 'Participacion';
     sensitiveTopics: string[]; // Temas que preocupan a la comunidad
     keyMessages: string[]; // Mensajes que el Alcalde debe dar
     tasksDone: string[]; // Tareas realizadas recientemente

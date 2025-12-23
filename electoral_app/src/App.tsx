@@ -1,20 +1,15 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Search,
   Map as MapIcon,
   BarChart3,
   Users,
-  Info,
   ChevronRight,
   Filter,
   ArrowLeft,
   TrendingUp,
-  AlertCircle,
-  Calendar,
-  Layers,
   Download,
   Database,
-  PieChart as PieChartIcon,
   ChevronDown,
   ChevronUp,
   Upload,
@@ -31,15 +26,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
-  PieChart,
-  Pie,
-  Legend
+  Cell
 } from 'recharts';
-import { MapContainer, TileLayer, Marker, Popup, Polygon, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polygon } from 'react-leaflet';
 import L from 'leaflet';
 import Papa from 'papaparse';
-import { PARTIES, COALITIONS, MOCK_SECTIONS, MOCK_COLONIAS, ELECTION_METADATA, SectionData, ColoniaData, distributeVotes } from './mockData';
+import { PARTIES, MOCK_SECTIONS, MOCK_COLONIAS, ELECTION_METADATA } from './mockData';
+import type { SectionData, ColoniaData } from './mockData';
 
 // Fix Leaflet icon issue
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -216,7 +209,7 @@ const App: React.FC = () => {
                 <YAxis hide />
                 <Tooltip
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}
-                  formatter={(value: number) => [`${value.toFixed(1)}%`, 'Porcentaje']}
+                  formatter={(value: number | undefined) => [value ? `${value.toFixed(1)}%` : '0%', 'Porcentaje']}
                 />
                 <Bar dataKey="percentage" radius={[4, 4, 0, 0]}>
                   {totalStats.results.map((entry, index) => (
