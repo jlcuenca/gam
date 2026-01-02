@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
+import logoGam from './assets/logo_gam.webp';
 
 // Types
 type AuthMethod = 'curp' | 'phone' | 'qr';
@@ -120,6 +121,24 @@ const INITIAL_CITIZENS: Citizen[] = [
     electoralSection: '1234',
     assignedPrograms: ['1', '2', '3'],
     balance: 4850
+  },
+  {
+    id: 'c2',
+    name: 'Maria González',
+    curp: 'GOMR850101MDFRRN02',
+    phone: '5587654321',
+    electoralSection: '1234',
+    assignedPrograms: ['4', '5'],
+    balance: 1200
+  },
+  {
+    id: 'c3',
+    name: 'Pedro Ramírez',
+    curp: 'RAPP900101HDFRRN03',
+    phone: '5598765432',
+    electoralSection: '5678',
+    assignedPrograms: ['1', '6'],
+    balance: 3500
   }
 ];
 
@@ -135,6 +154,7 @@ const App: React.FC = () => {
   const [programs, setPrograms] = useState<Program[]>(INITIAL_PROGRAMS);
   const [currentUser, setCurrentUser] = useState<Citizen | null>(null);
   const [adminTab, setAdminTab] = useState<'citizens' | 'programs' | 'assign'>('citizens');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // New Citizen Form
   const [newCitizen, setNewCitizen] = useState({ name: '', curp: '', phone: '', section: '' });
@@ -240,7 +260,7 @@ const App: React.FC = () => {
     >
       <div style={{ marginBottom: '40px' }}>
         <img
-          src="http://gamadero.cdmx.gob.mx/assets/img/logo_gam1.webp"
+          src={logoGam}
           alt="Alcaldía Gustavo A. Madero"
           style={{ width: '100%', maxWidth: '280px', marginBottom: '20px' }}
         />
@@ -356,7 +376,7 @@ const App: React.FC = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: '20px' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="http://gamadero.cdmx.gob.mx/assets/img/logo_gam1.webp" alt="Logo" style={{ height: '40px' }} />
+          <img src={logoGam} alt="Logo" style={{ height: '40px' }} />
           <div style={{ borderLeft: '1px solid #ddd', paddingLeft: '12px' }}>
             <h2 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Administrador</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Panel de Control</p>
@@ -390,12 +410,49 @@ const App: React.FC = () => {
 
           <div style={{ marginTop: '24px' }}>
             <h4 style={{ fontSize: '0.9rem', marginBottom: '12px' }}>Ciudadanos Registrados ({citizens.length})</h4>
-            {citizens.map(c => (
-              <div key={c.id} style={{ padding: '12px', background: '#fff', borderRadius: '12px', marginBottom: '8px', border: '1px solid #eee' }}>
-                <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{c.name}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{c.curp} | Sec: {c.electoralSection}</div>
+
+            {/* Search Input */}
+            <div className="input-group" style={{ marginBottom: '12px' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  className="input-field"
+                  style={{ paddingLeft: '36px' }}
+                  placeholder="Buscar por Nombre, CURP o Sección..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
-            ))}
+            </div>
+
+            {citizens
+              .filter(c =>
+                searchTerm === '' ||
+                c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                c.curp.includes(searchTerm.toUpperCase()) ||
+                c.electoralSection.includes(searchTerm)
+              )
+              .map(c => (
+                <div key={c.id} style={{ padding: '12px', background: '#fff', borderRadius: '12px', marginBottom: '8px', border: '1px solid #eee' }}>
+                  <div style={{ fontWeight: '600', fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{c.name}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>${c.balance.toLocaleString()}</span>
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '4px' }}>{c.curp} | Sec: {c.electoralSection}</div>
+
+                  {/* Benefits List */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                    {c.assignedPrograms.map(pid => {
+                      const prog = programs.find(p => p.id === pid);
+                      return prog ? (
+                        <span key={pid} style={{ fontSize: '0.65rem', padding: '2px 6px', background: `${prog.color}20`, color: prog.color, borderRadius: '4px' }}>
+                          {prog.title}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}
@@ -460,7 +517,7 @@ const App: React.FC = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="dashboard" style={{ padding: '20px' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src="http://gamadero.cdmx.gob.mx/assets/img/logo_gam1.webp" alt="Logo" style={{ height: '40px' }} />
+          <img src={logoGam} alt="Logo" style={{ height: '40px' }} />
           <div style={{ borderLeft: '1px solid #ddd', paddingLeft: '12px' }}>
             <h2 style={{ fontSize: '1.1rem', fontWeight: '700' }}>{currentUser?.name}</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{currentUser?.curp}</p>
