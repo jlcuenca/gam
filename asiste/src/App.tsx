@@ -490,19 +490,52 @@ const App: React.FC = () => {
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
             }}
           >
-            <div style={{ position: 'relative', width: '100%', maxWidth: '400px', aspectRatio: '3/4', background: '#333', borderRadius: '24px', overflow: 'hidden', border: '4px solid white' }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '400px', aspectRatio: '3/4', background: '#000', borderRadius: '24px', overflow: 'hidden', border: '4px solid white' }}>
               {!selfieImage ? (
-                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', gap: '20px' }}>
-                  <Camera size={64} opacity={0.5} />
-                  <p>Cámara Lista para Validación Grupal</p>
-                  <button
-                    className="btn-primary"
-                    style={{ width: 'auto', padding: '12px 30px' }}
-                    onClick={() => setSelfieImage('https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=800')}
-                  >
-                    Tomar Foto
-                  </button>
-                </div>
+                <>
+                  <video
+                    autoPlay
+                    playsInline
+                    muted
+                    ref={(video) => {
+                      if (video && !video.srcObject) {
+                        navigator.mediaDevices.getUserMedia({
+                          video: { facingMode: { exact: 'environment' } }
+                        }).then(stream => {
+                          video.srcObject = stream;
+                        }).catch(err => {
+                          console.log("Rear camera not found, trying default", err);
+                          navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                            .then(stream => video.srcObject = stream)
+                            .catch(e => console.error("Camera failed", e));
+                        });
+                      }
+                    }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <div style={{ position: 'absolute', bottom: 20, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
+                    <button
+                      className="btn-primary"
+                      style={{ width: 60, height: 60, borderRadius: '50%', padding: 0, border: '4px solid white', background: 'transparent' }}
+                      onClick={() => {
+                        const video = document.querySelector('video');
+                        if (video) {
+                          const canvas = document.createElement('canvas');
+                          canvas.width = video.videoWidth;
+                          canvas.height = video.videoHeight;
+                          canvas.getContext('2d')?.drawImage(video, 0, 0);
+                          setSelfieImage(canvas.toDataURL('image/jpeg'));
+                          
+                          // Stop stream
+                          const stream = video.srcObject as MediaStream;
+                          stream?.getTracks().forEach(track => track.stop());
+                        }
+                      }}
+                    >
+                      <div style={{ width: 44, height: 44, background: 'white', borderRadius: '50%', margin: '4px auto' }} />
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div style={{ position: 'relative', height: '100%' }}>
                   <img src={selfieImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de QR de Prueba - ASISTE GAM</title>
+    <!-- Librería QRCode.js desde CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        h1 {
+            color: #9f2241;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        #qrcode {
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .timer-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .timer-progress {
+            height: 100%;
+            background: #9f2241;
+            width: 100%;
+            transition: width 1s linear;
+        }
+
+        .value-display {
+            font-family: monospace;
+            font-size: 0.75em;
+            color: #888;
+            margin-top: 15px;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+
+        .note {
+            margin-top: 30px;
+            font-size: 0.8em;
+            color: #666;
+            background: #fff3e0;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #ff9800;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>ASISTE GAM</h1>
+        <p class="subtitle">Generador de QR para Pruebas (Admin/Supervisor)</p>
+
+        <div id="qrcode"></div>
+
+        <div class="timer-bar">
+            <div class="timer-progress" id="timer"></div>
+        </div>
+        <p style="font-size: 0.8em; color: #666; margin-top: 5px;">Expira en <span id="timeLeft">30</span>s</p>
+
+        <div class="value-display" id="qrText">Generando...</div>
+
+        <div class="note">
+            <strong>Instrucciones:</strong> Abra esta página en su celular o en otra pestaña. Use la opción "Escanear
+            QR" del perfil <strong>Supervisor</strong> en la app ASISTE para validar este código.
+        </div>
+    </div>
+
+    <script>
+        const qrContainer = document.getElementById("qrcode");
+        const qrText = document.getElementById("qrText");
+        const timerBar = document.getElementById("timer");
+        const timeLeftSpan = document.getElementById("timeLeft");
+        let qrcode = new QRCode(qrContainer, { width: 200, height: 200 });
+
+        let timeLeft = 30;
+
+        function generateQR() {
+            const timestamp = Date.now();
+            const randomHash = Math.random().toString(36).substring(7);
+            const value = `GAM-ASISTE-${timestamp}-${randomHash}`;
+
+            qrcode.clear();
+            qrcode.makeCode(value);
+
+            qrText.innerText = value;
+            timeLeft = 30;
+            updateTimerVisuals();
+        }
+
+        function updateTimerVisuals() {
+            timeLeftSpan.innerText = timeLeft;
+            const percentage = (timeLeft / 30) * 100;
+            timerBar.style.width = percentage + "%";
+        }
+
+        // Init
+        generateQR();
+
+        // Loop
+        setInterval(() => {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                generateQR();
+            } else {
+                updateTimerVisuals();
+            }
+        }, 1000);
+    </script>
+</body>
+
+</html>
