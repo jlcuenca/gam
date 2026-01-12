@@ -40,6 +40,7 @@ interface Space {
     beforeAfterImages?: { before: string; after: string }[];
     politicalClimate?: string; // Clima político (Participación Ciudadana)
     neighborhoodLeaders?: { name: string; role: string; affinity: 'Aliado' | 'Opositor' | 'Neutral' }[];
+    websiteUrl?: string; // URL del sitio web del espacio
 }
 
 const MOCK_SPACES: Space[] = [
@@ -101,7 +102,8 @@ const MOCK_SPACES: Space[] = [
         keyMessages: ['Cultura para todos en Lindavista'],
         tasksDone: ['Inauguración de sala digital'],
         politicalClimate: 'Clase media participativa, alta exigencia de calidad.',
-        neighborhoodLeaders: [{ name: 'Lic. Claudia Ruiz', role: 'Comité Vecinal Lindavista', affinity: 'Neutral' }]
+        neighborhoodLeaders: [{ name: 'Lic. Claudia Ruiz', role: 'Comité Vecinal Lindavista', affinity: 'Neutral' }],
+        websiteUrl: 'http://www.futurama.cdmx.gob.mx/'
     },
     {
         id: '4',
@@ -141,7 +143,8 @@ const MOCK_SPACES: Space[] = [
         keyMessages: ['Remodelación total en Q2 2026', 'Apoyos económicos temporales'],
         tasksDone: ['Revisión de protección civil'],
         politicalClimate: 'Tensión por falta de obras, se requiere presencia constante.',
-        neighborhoodLeaders: [{ name: 'Don Pedro Ortiz', role: 'Secretario General', affinity: 'Opositor' }]
+        neighborhoodLeaders: [{ name: 'Don Pedro Ortiz', role: 'Secretario General', affinity: 'Opositor' }],
+        websiteUrl: 'https://www.gamadero.cdmx.gob.mx/mercados/vicente-guerrero'
     },
     {
         id: '6',
@@ -249,7 +252,8 @@ const App: React.FC = () => {
         tasksDone: [],
         images: ['https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800'],
         politicalClimate: '',
-        neighborhoodLeaders: []
+        neighborhoodLeaders: [],
+        websiteUrl: ''
     });
 
     const categories = ['Todos', 'Mercado', 'Deportivo', 'Cultura', 'Parque', 'Clínica', 'Fuente', 'Paradero', 'Camellón', 'Plaza', 'Sendero Seguro', 'Bajo Puente', 'Kiosko'];
@@ -288,7 +292,8 @@ const App: React.FC = () => {
             keyMessages: formData.keyMessages || [],
             tasksDone: formData.tasksDone || [],
             politicalClimate: formData.politicalClimate || '',
-            neighborhoodLeaders: formData.neighborhoodLeaders || []
+            neighborhoodLeaders: formData.neighborhoodLeaders || [],
+            websiteUrl: formData.websiteUrl || ''
         };
 
         setSpaces([newSpace, ...spaces]);
@@ -301,7 +306,8 @@ const App: React.FC = () => {
             tasksDone: [],
             images: ['https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800'],
             politicalClimate: '',
-            neighborhoodLeaders: []
+            neighborhoodLeaders: [],
+            websiteUrl: ''
         });
     };
 
@@ -309,7 +315,7 @@ const App: React.FC = () => {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <header className="header">
                 <div className="logo-container">
-                    <img src="http://gamadero.cdmx.gob.mx/assets/img/logo_gam1.webp" alt="GAM" className="logo-img" />
+                    <img src="/logo_gam-DMJH8_Dm.webp" alt="GAM" className="logo-img" />
                     <div className="title-group">
                         <h1>Espacios GAM</h1>
                         <p>Radiografía de Territorio</p>
@@ -634,6 +640,13 @@ const App: React.FC = () => {
                 <button className="btn-primary" style={{ width: '100%', padding: '16px', borderRadius: '16px', background: 'var(--primary)', color: 'white', border: 'none', fontWeight: '700', fontSize: '1rem', boxShadow: '0 4px 15px rgba(159, 34, 65, 0.3)' }}>
                     Generar Reporte de Recorrido
                 </button>
+
+                {selectedSpace?.websiteUrl && (
+                    <a href={selectedSpace.websiteUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary" style={{ width: '100%', padding: '16px', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '12px', background: 'var(--primary-light)', color: 'white', fontWeight: '700', textDecoration: 'none' }}>
+                        <Home size={18} />
+                        Visitar Sitio Web
+                    </a>
+                )}
             </div>
         </motion.div>
     );
@@ -805,6 +818,17 @@ const App: React.FC = () => {
                         <option value="">Seleccionar Colonia...</option>
                         {COLONIAS_GAM.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
+                </section>
+
+                <section className="form-section">
+                    <label>Sitio Web (Opcional)</label>
+                    <input
+                        type="url"
+                        className="form-input"
+                        placeholder="https://..."
+                        value={formData.websiteUrl || ''}
+                        onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
+                    />
                 </section>
 
                 <section className="form-section">

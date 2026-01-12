@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80">
+  <!-- Background for visibility -->
+  <rect width="300" height="80" fill="transparent"/>
+  
+  <!-- Stylized Heart Icon -->
+  <path d="M40,25 C40,10 60,10 70,25 C80,10 100,10 100,25 C100,45 70,65 70,65 C70,65 40,45 40,25 Z" fill="#9F2241" stroke="white" stroke-width="2"/>
+  
+  <!-- Text: GAM -->
+  <text x="110" y="50" font-family="Arial, sans-serif" font-weight="bold" font-size="40" fill="#333">GAM</text>
+  
+  <!-- Slogan: LATE CON FUERZA -->
+  <text x="112" y="70" font-family="Arial, sans-serif" font-size="12" fill="#9F2241" letter-spacing="1">LATE CON FUERZA</text>
+</svg>
