@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Car,
   Trash2,
@@ -10,10 +10,13 @@ import {
   Clock,
   X,
   Search,
-  Footprints
+  Footprints,
+  Settings,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from './lib/supabase';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
+import AdminView from './components/AdminView';
 
 // Types
 interface Category {
@@ -30,6 +33,7 @@ interface Report {
   longitude: number;
   address: string;
   photos: string[];
+  folio?: string;
   status: 'pendiente' | 'asignado' | 'atendido' | 'cerrado';
   priority: 'baja' | 'media' | 'alta';
   created_at: string;
@@ -43,7 +47,7 @@ const CATEGORIES: Category[] = [
 ];
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'category' | 'form' | 'success'>('category');
+  const [view, setView] = useState<'category' | 'form' | 'success' | 'admin'>('category');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -57,6 +61,7 @@ const App: React.FC = () => {
   const [trackingFolio, setTrackingFolio] = useState('');
   const [trackedReport, setTrackedReport] = useState<Report | null>(null);
   const [isTracking, setIsTracking] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Simple Geolocation capture
@@ -73,10 +78,19 @@ const App: React.FC = () => {
         }
       );
     }
-    fetchRecentReports();
+    if (isSupabaseConfigured) {
+      fetchRecentReports();
+    }
   }, []);
 
+  useEffect(() => {
+    if (view === 'category' && isSupabaseConfigured) {
+      fetchRecentReports();
+    }
+  }, [view]);
+
   const fetchRecentReports = async () => {
+    if (!isSupabaseConfigured) return;
     try {
       const { data, error } = await supabase
         .from('ciudadano_reportes')
@@ -102,15 +116,19 @@ const App: React.FC = () => {
       const { data, error } = await supabase
         .from('ciudadano_reportes')
         .select('*')
-        .or(`id.eq.${cleanId},id.ilike.%${cleanId}%`)
+        .ilike('folio', `%${cleanId}%`)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        alert("No se encontró ningún reporte con ese folio.");
+        return;
+      }
       setTrackedReport(data);
     } catch (error) {
       console.error("Error tracking report:", error);
-      alert("No se encontró ningún reporte con ese folio.");
+      alert("Hubo un error al buscar el reporte.");
     } finally {
       setIsTracking(false);
     }
@@ -195,16 +213,27 @@ const App: React.FC = () => {
     setView('form');
   };
 
-  const handlePhotoAdd = async () => {
-    // Mock photo adding
-    const mockPhotos = [
-      'https://images.unsplash.com/photo-1595231712325-9fecd0091482?auto=format&fit=crop&q=80&w=800',
-      'https://images.unsplash.com/photo-1621431671804-ea460f1b525d?auto=format&fit=crop&q=80&w=800'
-    ];
-    if (photos.length < 3) {
-      const originalUrl = mockPhotos[photos.length % 2];
-      const watermarkedUrl = await watermarkImage(originalUrl);
-      setPhotos([...photos, watermarkedUrl]);
+  const handlePhotoAdd = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string;
+        const watermarkedUrl = await watermarkImage(base64);
+        setPhotos(prev => [...prev, watermarkedUrl]);
+        // Reset input value to allow selecting same file again if needed
+        e.target.value = '';
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error processing image:", error);
+      alert("Error al procesar la imagen.");
     }
   };
 
@@ -237,6 +266,10 @@ const App: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (!isSupabaseConfigured) {
+      alert("Error: La aplicación no está configurada correctamente con Supabase.");
+      return;
+    }
     if (!selectedCategory || !description || !location) return;
 
     setIsSubmitting(true);
@@ -245,7 +278,7 @@ const App: React.FC = () => {
       const imageUrls = await uploadPhotos(photos);
 
       // 2. Insert report data into Supabase table
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('ciudadano_reportes')
         .insert([{
           category: selectedCategory,
@@ -255,19 +288,22 @@ const App: React.FC = () => {
           address: address,
           photos: imageUrls,
           status: 'pendiente'
-        }]);
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
 
       setRecentReports(prev => [
         {
-          id: Math.random().toString(36).substr(2, 9), // Temporary ID for immediate UI update until real refresh
+          id: data?.id || Math.random().toString(36).substr(2, 9),
           category: selectedCategory,
           description,
           latitude: location.lat,
           longitude: location.lng,
           address,
           photos: imageUrls,
+          folio: data?.folio || data?.id?.slice(0, 8).toUpperCase(),
           status: 'pendiente',
           priority: 'media',
           created_at: new Date().toISOString()
@@ -283,7 +319,6 @@ const App: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-
   const renderHeader = (title: string, showBack = false) => (
     <header className="header">
       <div className="logo-container" style={{ justifyContent: 'space-between', width: '100%' }}>
@@ -293,13 +328,27 @@ const App: React.FC = () => {
               <ArrowLeft size={20} color="var(--primary)" />
             </button>
           ) : (
-            <img src="/logo_gam-DMJH8_Dm.webp" alt="GAM" className="logo-img" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img src="/logo_gam-DMJH8_Dm.webp" alt="GAM" className="logo-img" />
+              <button
+                onClick={() => setView('admin')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                title="Panel de Administración"
+              >
+                <ShieldCheck size={18} color="var(--primary)" style={{ opacity: 0.3 }} />
+              </button>
+            </div>
           )}
           <div className="title-group">
             <h1>{title}</h1>
             <p>Alcaldía GAM</p>
           </div>
         </div>
+        {!isSupabaseConfigured && (
+          <div title="Configuración de Supabase pendiente" style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center' }}>
+            <Settings size={20} className="animate-pulse" />
+          </div>
+        )}
       </div>
     </header>
   );
@@ -363,7 +412,7 @@ const App: React.FC = () => {
                   >
                     <CheckCircle size={24} color="var(--primary)" />
                     <div className="location-info">
-                      <div className="address" style={{ fontWeight: '800' }}>Folio: GAM-{trackedReport.id.slice(0, 4).toUpperCase()}</div>
+                      <div className="address" style={{ fontWeight: '800' }}>Folio: GAM-{trackedReport.folio || trackedReport.id.slice(0, 8).toUpperCase()}</div>
                       <div className="coords">Estatus: <span style={{ color: 'var(--primary)', fontWeight: 'bold', textTransform: 'capitalize' }}>{trackedReport.status}</span></div>
                     </div>
                   </motion.div>
@@ -389,6 +438,18 @@ const App: React.FC = () => {
                   )}
                 </div>
               </section>
+
+              {!isSupabaseConfigured && (
+                <section className="report-section" style={{ marginTop: '20px' }}>
+                  <div className="location-card" style={{ border: '1px solid var(--danger)', background: 'rgba(239, 68, 68, 0.1)' }}>
+                    <AlertTriangle size={24} color="var(--danger)" />
+                    <div className="location-info">
+                      <div className="address" style={{ color: 'var(--danger)', fontWeight: 'bold' }}>Configuración requerida</div>
+                      <div className="coords">Las credenciales de Supabase no están configuradas en el archivo .env.local</div>
+                    </div>
+                  </div>
+                </section>
+              )}
             </div>
           </motion.div>
         )}
@@ -496,10 +557,10 @@ const App: React.FC = () => {
                 <button
                   className="btn-submit"
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !description || photos.length === 0}
-                  style={{ opacity: (isSubmitting || !description || photos.length === 0) ? 0.6 : 1 }}
+                  disabled={isSubmitting || !description || photos.length === 0 || !isSupabaseConfigured}
+                  style={{ opacity: (isSubmitting || !description || photos.length === 0 || !isSupabaseConfigured) ? 0.6 : 1 }}
                 >
-                  {isSubmitting ? 'Enviando...' : 'Enviar Reporte'}
+                  {!isSupabaseConfigured ? 'Falta Configuración' : isSubmitting ? 'Enviando...' : 'Enviar Reporte'}
                 </button>
               </section>
             </div>
@@ -520,7 +581,7 @@ const App: React.FC = () => {
               ¡Reporte Recibido!
             </h2>
             <p style={{ color: 'var(--text-muted)', marginBottom: '32px', lineHeight: '1.5' }}>
-              Tu reporte ha sido registrado con éxito. El folio de seguimiento es <strong style={{ color: 'var(--primary)' }}>GAM-{Math.floor(Math.random() * 10000)}</strong>.
+              Tu reporte ha sido registrado con éxito. El folio de seguimiento es <strong style={{ color: 'var(--primary)' }}>GAM-{recentReports[0]?.folio || '...'}</strong>.
             </p>
             <button
               className="btn-submit"
@@ -536,7 +597,28 @@ const App: React.FC = () => {
             </button>
           </motion.div>
         )}
+        {view === 'admin' && (
+          <motion.div
+            key="admin"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="admin-overlay"
+          >
+            <AdminView onBack={() => setView('category')} />
+          </motion.div>
+        )}
       </AnimatePresence>
+
+      {/* Hidden file input for camera */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+      />
     </div >
   );
 };
