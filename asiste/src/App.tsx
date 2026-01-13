@@ -141,8 +141,14 @@ const App: React.FC = () => {
     if (showScanner) {
       const scanner = new Html5QrcodeScanner(
         "reader",
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-                /* verbose= */ false
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          rememberLastUsedCamera: true,
+          // Explicitly prefer the back camera
+          aspectRatio: 1.0
+        },
+        /* verbose= */ false
       );
 
       scanner.render(onScanSuccess, onScanFailure);
@@ -500,12 +506,16 @@ const App: React.FC = () => {
                     ref={(video) => {
                       if (video && !video.srcObject) {
                         navigator.mediaDevices.getUserMedia({
-                          video: { facingMode: { exact: 'environment' } }
+                          video: {
+                            facingMode: { ideal: 'environment' },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                          }
                         }).then(stream => {
                           video.srcObject = stream;
                         }).catch(err => {
                           console.log("Rear camera not found, trying default", err);
-                          navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                          navigator.mediaDevices.getUserMedia({ video: true })
                             .then(stream => video.srcObject = stream)
                             .catch(e => console.error("Camera failed", e));
                         });
@@ -525,7 +535,7 @@ const App: React.FC = () => {
                           canvas.height = video.videoHeight;
                           canvas.getContext('2d')?.drawImage(video, 0, 0);
                           setSelfieImage(canvas.toDataURL('image/jpeg'));
-                          
+
                           // Stop stream
                           const stream = video.srcObject as MediaStream;
                           stream?.getTracks().forEach(track => track.stop());
